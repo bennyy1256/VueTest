@@ -1,0 +1,241 @@
+﻿
+@{
+    ViewBag.Title = "TryVue";
+}
+
+<script src="http://vuefe.cn/js/vue.js"></script>
+
+
+
+<span id="name" v-bind:title="titlemsg" >{{ contentmsg }}</span>
+
+<input type="button" class="btn btn-primary" id="btnClear" v-on:click="clearData" value="Clear" />
+<button class="btn btn-primary" type="button" id="btnShowCreate" v-on:click="toggleShowCreate">{{btnShowCreateValue}}</button>
+<div class="row">
+    
+    <table class="table table-striped" id="tbData" v-bind:title="titlemsg" v-on:click="loadData($event)">
+        <thead>
+            <tr>
+                <th><span class="label label-info">姓名</span></th>
+                <th><span class="label label-info">年紀</span></th>
+                <th><span class="label label-info">生日</span></th>
+                <th><span class="label label-info">功能</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr v-for="(item, index) in items">
+                <td>
+                    <span v-model="item.Name"> {{ item.Name }}</span>
+                </td>
+                <td>
+                    <span v-if="!item.Changed"> {{ item.Age }}</span>
+                    <input type="text" v-else class="form-control" v-model="item.Age" number />
+                </td>
+                <td>
+                    <span v-if="!item.Changed"> {{ item.Birthday }}</span>
+                    <input type="text" v-else class="form-control" v-model="item.Birthday" />
+                </td>
+                <td>
+                    <!--新增三顆icon:編輯、送出、取消-->
+                    <!--新增三個function: showedit=編輯模式 update=更新資料 hiddenedit=唯讀模式-->
+                    <i class="glyphicon glyphicon-edit" style="cursor: pointer" title="Edit" 
+                       v-on:click.stop.self="showedit(index, $event)" v-show="!item.Changed"></i>
+                    <i class="glyphicon glyphicon-check" style="cursor: pointer" title="Submit"
+                       v-on:click.stop.self="update(index)" v-show="item.Changed"></i>
+                    <i class="glyphicon glyphicon-off" style="cursor: pointer" title="Cancel"
+                       v-on:click.stop.self="hiddenedit(index)" v-show="item.Changed"></i>
+                    <!--v-on:click.stop 停止click event冒泡-->
+                    <!--v-on:click.self 該元素才會觸發event-->
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="row" id="divCreate" v-show="showDivCreate" >
+
+    <label>Name</label>
+    <input type="text" class="form-control" v-model="name" placeholder="Your Name" />
+
+    <label>Age</label>
+    <input type="number" class="form-control" v-model="age" placeholder="ex:17" />
+
+    <label>Birthday</label>
+    <input type="text" class="form-control" v-model="birthday" placeholder="ex:2017-02-01" />
+
+    <button class="btn btn-success" type="button" v-on:click="createData">
+        送出
+    </button>
+</div>
+
+
+
+@section scripts{
+    <script type="text/javascript">
+
+        $(function () {
+
+            var titleObj = {
+                titlemsg: " 現在時間 : " + new Date(),
+                contentmsg: "This is my vue test ..."
+            }
+
+            // #name - Set span title
+            var vueTitle = new Vue({
+                el: '#name',
+                data: titleObj
+            })
+
+            //-------------------------------------------------------------------------------------------
+            
+            var tableData = {
+                titlemsg: "點擊表單後從Server取回資料...",//linked
+                items: null
+            }
+
+            // #tbData - Get data from server.
+            var vueLoadData = new Vue({
+                el: '#tbData',
+                data: tableData,
+                methods: {
+                    loadData: function (event)
+                    {
+                        //event.currentTarget.id;
+                        //event.target.name;
+                        if (event.target.name != null && event.target.name === "") { return; }
+                        //alert(event);
+                        //alert(event.target.name);
+                        $.ajax({
+                            url: '@Url.Action("LoadData", "Home")',
+                            type: "POST",
+                            async: true,
+                            cache: false,
+                            contenttype: "application/json",
+                            datatype: "json",
+                            success: function (data) {
+                                vueLoadData.items = JSON.parse(data);
+                            },
+                            error: function (jqXHR, errorThrown) {
+                                alert(errorThrown);
+                            }
+                        });
+                    },
+                    update: function(index)
+                    {
+                        //alert('update');
+                        var name = this.items[index].Name;
+                        var age = this.items[index].Age;
+                        var birthday = this.items[index].Birthday;
+                        var redisIndex = this.items[index].RedisIndex;
+
+                        $.ajax({
+                            url: '@Url.Action("UpdateTestData", "Home")',
+                            type: "GET",
+                            async: true,
+                            cache: false,
+                            data: {index:redisIndex, name:name, age:age, birthday:birthday},
+                            contenttype: 'json',
+                            datatype: 'json',
+                            success: function (rdata) {
+                                vueLoadData.items[index].Changed = false;
+                                alert(rdata.message);
+                            },
+                            error: function (jqXHR, errorThrown) {
+                                alert(errorThrown);
+                            }
+                        })
+                    },
+                    showedit: function (index, e) {
+                        // get the rows DOM el
+                        //var row = this.items[index];
+                        // update param
+                        //alert('showedit');
+                        this.items[index].Changed = true;
+                    },
+                    hiddenedit: function (index) {
+                        //alert('hiddenedit');
+                        this.items[index].Changed = false;
+                    }
+                }
+            })
+
+            // #btnClear - Clear list data
+            var vueClearBtn = new Vue({
+                el: '#btnClear',
+                methods: {
+                    clearData: function () {
+                        vueLoadData.items = null;
+                    }
+                }
+            })
+
+            //-------------------------------------------------------------------------------------------
+            // #btnShowCreate - Toggle show create data ui
+            var vueShowCreateBtn = new Vue({
+                el: '#btnShowCreate',
+                data: {
+                    btnShowCreateValue : '顯示新增表單'
+                },
+                methods: {
+                    toggleShowCreate: function () {
+                        vueDivCreate.isShowCreate = !vueDivCreate.isShowCreate;
+                        if (vueDivCreate.isShowCreate) {
+                            this.btnShowCreateValue = '顯示新增表單';
+                        }
+                        else {
+                            this.btnShowCreateValue = '隱藏新增表單';
+                        }
+                    }
+                }
+            })
+
+            // 
+            var vueDivCreate = new Vue({
+                el: '#divCreate',
+                data: {
+                    isShowCreate: false,
+                    name: '',
+                    age: null,
+                    birthday: ''
+                },
+                methods:{
+                    createData: function () {
+                        $.ajax({
+                            url: '@Url.Action("CreateTestData", "Home")',
+                            type: 'get',
+                            async: true,
+                            cache: false,
+                            data: {
+                                name: this.name,
+                                age: this.age,
+                                birthday: this.birthday
+                            },
+                            contenttype: 'application/json',
+                            datatype: 'json',
+                            success: function (rdata) {
+                                alert(rdata.message);
+                            },
+                            error: function (jqxh, errthrow) {
+                                alert(errthrow);
+                            }
+                        })
+                    }
+                },
+                computed: {
+                    showDivCreate: function () {
+                        if (this.isShowCreate) {
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                }
+            })
+            //-------------------------------------------------------------------------------------------
+
+        })
+
+    </script>
+}
+
